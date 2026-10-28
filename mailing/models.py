@@ -119,7 +119,7 @@ class Mailing(models.Model):
         if self.start_time and self.start_time < now:
             raise ValidationError({'start_time': 'Дата начала не может быть в прошлом.'})
         if self.start_time and self.end_time and self.start_time >=self.end_time:
-            raise ValidationError('Дата начала не должна быть раньше окончания')
+            raise ValidationError('Дата начала должна быть строго раньше даты окончания.')
 
     def update_status(self):
         """Динамический пересчет статуса и сохранение его, если изменился"""

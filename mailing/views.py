@@ -86,7 +86,7 @@ class MailingCreateView(CreateView):
 
 class MailingUpdateView(UpdateView):
     model = Mailing
-    fields = ('start_time', 'end-time', 'message', 'recipients')
+    fields = ('start_time', 'end_time', 'message', 'recipients')
     success_url = reverse_lazy('mailing:mailing_list')
 
     def form_valid(self, form):
