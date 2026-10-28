@@ -1,0 +1,54 @@
+.rainbow-btn {
+  position: relative;
+  overflow: hidden;
+  background: transparent !important;
+  color: #ffffff !important;
+  border: none !important;
+  z-index: 1;
+
+  /* Тень для текста: 2px размытия, чёрный цвет с прозрачностью 70% */
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.7);
+}
+
+.rainbow-btn::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 300%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    #ff0000,
+    #ff7300,
+    #ffff00,
+    #00ff00,
+    #0000ff,
+    #8a2be2,
+    #ff0000
+  );
+  background-size: 33.33% 100%;
+  animation: rainbow-slide 10s ease-in-out infinite; /* Ещё медленнее и плавнее */
+  z-index: -1;
+  border-radius: 0.375rem;
+}
+
+@keyframes rainbow-slide {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-66.66%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rainbow-btn::before {
+    animation: none;
+    background: linear-gradient(90deg, #ff0000, #8a2be2);
+  }
+  .rainbow-btn {
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
+  }
+}
+

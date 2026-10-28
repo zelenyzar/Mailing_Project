@@ -1,0 +1,51 @@
+.btn-chameleon {
+    position: relative;
+    overflow: hidden;
+    background: transparent !important;
+    border: none !important;
+    color: #ffffff !important; /* белый текст */
+    z-index: 2;
+    transition: box-shadow 0.3s ease;
+}
+
+.btn-chameleon::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(
+        45deg,
+        #ff0000,
+        #ffa500,
+        #ffff00,
+        #00ff00,
+        #00ffff,
+        #0000ff,
+        #8b00ff,
+        #ff00ff,
+        #ff0000
+    );
+    background-size: 400% 100%;
+    background-position: 0 0;
+    transition: background-position 1.2s linear;
+    z-index: -1;
+    filter: brightness(0.85);
+}
+
+.btn-chameleon:hover::before {
+    background-position: 100% 0;
+}
+
+.btn-chameleon:hover {
+    box-shadow: 0 0 15px rgba(255, 165, 0, 0.6);
+    transform: translateY(-1px);
+}
+
+.btn-chameleon-form button {
+    background: transparent !important;
+    border: none !important;
+    color: inherit !important;
+    cursor: pointer;
+}

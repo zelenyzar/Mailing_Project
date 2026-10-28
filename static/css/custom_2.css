@@ -1,0 +1,63 @@
+.btn-chameleon {
+  position: relative;
+  overflow: hidden;
+  background: transparent !important;
+  border: none !important;
+  color: #ffffff !important;
+  z-index: 2;
+  transition: box-shadow 0.3s ease, transform 0.2s ease;
+}
+
+.btn-chameleon::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-size: 400% 100%;
+  background-position: 0 0;
+  transition: background-position 1.5s linear;
+  z-index: -1;
+  filter: brightness(0.8);
+}
+
+.btn-chameleon:hover::before {
+  background-position: 100% 0;
+}
+
+.btn-chameleon:hover {
+  box-shadow: 0 0 16px rgba(currentColor, 0.4);
+  transform: translateY(-2px);
+}
+
+
+.btn-chameleon-edit::before {
+  background: linear-gradient(
+    45deg,
+    #ff9a44,
+    #ffcc00,
+    #ffeaa7,
+    #ff9a44
+  );
+}
+
+.btn-chameleon-unpub::before {
+  background: linear-gradient(
+    45deg,
+    #4a90e2,
+    #667eea,
+    #7b68ee,
+    #4a90e2
+  );
+}
+
+.btn-chameleon-delete::before {
+  background: linear-gradient(
+    45deg,
+    #ff4757,
+    #ff6b6b,
+    #c70039,
+    #ff4757
+  );
+}
