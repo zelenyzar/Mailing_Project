@@ -1,14 +1,18 @@
 from django.db import models
-
 from django.core.exceptions import ValidationError
+from django.core.validators import validate_email
 from django.utils import timezone
+from django.conf import settings
+from django.core.mail import send_mail
 
 
+#-----Client----
 class Client(models.Model):
     email = models.EmailField(
         max_length=100,
         unique=True,
         verbose_name='Email',
+        validators=[validate_email],
         help_text='введите почту клиента'
     )
 
@@ -34,7 +38,7 @@ class Client(models.Model):
     def __str__(self):
         return self.email
 
-
+#----Message----
 class Message(models.Model):
     subject = models.CharField(
         max_length=100,
@@ -51,14 +55,14 @@ class Message(models.Model):
 
     class Meta:
         verbose_name = 'Сообщение'
-
-    verbose_name_plural = 'Сообщения'
-    ordering = ['subject']
+        verbose_name_plural = 'Сообщения'
+        ordering = ['subject']
 
     def __str__(self):
         return self.subject
 
 
+#----Mailing----
 class Mailing(models.Model):
     STATUS_CREATED = 'Создана'
     STATUS_RUNNING = 'Запущена'
@@ -113,7 +117,9 @@ class Mailing(models.Model):
         """Валидация на уровне модели"""
         now = timezone.now()
         if self.start_time and self.start_time < now:
-            raise ValidationError('Дата начала должна быть раньше даты окончания.')
+            raise ValidationError({'start_time': 'Дата начала не может быть в прошлом.'})
+        if self.start_time and self.end_time and self.start_time >=self.end_time:
+            raise ValidationError('Дата начала не должна быть раньше окончания')
 
     def update_status(self):
         """Динамический пересчет статуса и сохранение его, если изменился"""
@@ -134,3 +140,93 @@ class Mailing(models.Model):
     def save(self, *args, **kwargs):
         self.full_clean()
         super().save(*args, **kwargs)
+
+    def send(self):
+        """Запуск рассылки. Возвращает кортеж: (успешно, список ошибок)"""
+        now = timezone.now()
+
+        if not (self.start_time <= now <= self.end_time):
+            return False, ['Рассылка находится вне временного окна отправки']
+
+        errors = []
+
+        clients = self.recipients.all()
+        if not clients.exists():
+            return False, ['В рассылке нет получателей']
+        subject = self.message.subject
+        message = self.message.message
+        from_email = getattr(settings, 'DEFAULT_FROM_EMAIL', 'noreply@example.com')
+        for client in clients:
+            try:
+                send_mail(
+                    subject=subject,
+                    message=message,
+                    from_email=from_email,
+                    recipient_list=[client.email],
+                    fail_silently=False,
+                )
+
+                MailingAttempt.objects.create(
+                    mailing=self,
+                    client=client,
+                    status='Успешно',
+                    error_message=''
+                )
+            except Exception as e:
+                error_text = str(e)
+                MailingAttempt.objects.create(
+                    mailing=self,
+                    client=client,
+                    status='Не успешно',
+                    error_message=error_text
+                )
+                errors.append(f'{client.email}: {error_text}')
+
+        success = len(errors) == 0
+        return success, errors
+
+class MailingAttempt(models.Model):
+    """Модель для хранения истории попыток отправки"""
+    STATUS_SUCCESS = 'Успешно'
+    STATUS_FAIL = 'Не успешно'
+
+    STATUS_CHOICES = [
+        (STATUS_SUCCESS, 'Успешно'),
+        (STATUS_FAIL, 'Не успешно'),
+    ]
+
+    mailing = models.ForeignKey(
+        Mailing,
+        on_delete=models.CASCADE,
+        related_name='attempts',
+    )
+
+    client = models.ForeignKey(
+        Client,
+        on_delete=models.CASCADE,
+    )
+
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+    )
+
+    error_message = models.TextField(
+        blank=True,
+        null=True,
+        default='',
+        verbose_name='Текст ошибки'
+    )
+
+    sent_at = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name='Дата отправки'
+    )
+
+    class Meta:
+        verbose_name = 'Попытка рассылки'
+        verbose_name_plural = 'Попытки рассылки'
+        ordering = ['-sent_at']
+
+    def __str__(self):
+        return f'{self.mailing.id} -> {self.client.email} ({self.status})'

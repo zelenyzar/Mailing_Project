@@ -1,7 +1,10 @@
+from django.contrib.messages import success
 from django.urls import reverse_lazy
+from django.shortcuts import render, get_object_or_404, redirect
+from django.contrib import messages
 from django.views.generic import ListView, DetailView, CreateView, UpdateView, DeleteView
 
-from mailing.models import Client, Message, Mailing
+from mailing.models import Client, Message, Mailing, MailingAttempt
 
 
 # --- Clients ---
@@ -95,3 +98,16 @@ class MailingUpdateView(UpdateView):
 class MailingDeleteView(DeleteView):
     model = Mailing
     success_url = reverse_lazy('mailing:mailing_list')
+
+
+def mailing_send(request, pk):
+    mailing = get_object_or_404(Mailing, pk=pk)
+    if request.method == 'POST':
+        success, errors = mailing.send()
+        if success:
+            messages.success(request, f'Рассылка #{mailing.pk} успешно отправлена всем получателям!')
+        else:
+            error_text = '\n'.join(errors)
+            messages.error(request, f'Частичная ошибка при отправке рассылки #{mailing.pk}:\n{error_text}')
+        return redirect('mailing:mailing_detail', pk=mailing.pk)
+    return redirect('mailing:mailing_detail', pk=mailing.pk)
