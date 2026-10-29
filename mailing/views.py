@@ -1,10 +1,9 @@
-from django.contrib.messages import success
 from django.urls import reverse_lazy
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib import messages
 from django.utils import timezone
 from django.views.generic import ListView, DetailView, CreateView, UpdateView, DeleteView
-from .forms import MailingForm
+from .forms import MailingForm, ClientForm, MessageForm
 
 from mailing.models import Client, Message, Mailing, MailingAttempt
 
@@ -20,13 +19,13 @@ class ClientDetailView(DetailView):
 
 class ClientCreateView(CreateView):
     model = Client
-    fields = ('email', 'full_name', 'comment')
+    form_class = ClientForm
     success_url = reverse_lazy('mailing:client_list')
 
 
 class ClientUpdateView(UpdateView):
     model = Client
-    fields = ('email', 'full_name', 'comment')
+    form_class = ClientForm
     success_url = reverse_lazy('mailing:client_list')
 
 
@@ -46,13 +45,13 @@ class MessageDetailView(DetailView):
 
 class MessageCreateView(CreateView):
     model = Message
-    fields = ('subject', 'message')
+    form_class = MessageForm
     success_url = reverse_lazy('mailing:message_list')
 
 
 class MessageUpdateView(UpdateView):
     model = Message
-    fields = ('subject', 'message')
+    form_class = MessageForm
     success_url = reverse_lazy('mailing:message_list')
 
 
