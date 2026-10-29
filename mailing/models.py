@@ -73,17 +73,14 @@ class Mailing(models.Model):
     def __str__(self):
         return f'Рассылка #{self.pk} ({self.status})'
 
-    # ✅ Оставляем ТОЛЬКО ОДИН метод clean
     def clean(self):
         now = timezone.now()
-        if self.start_time and self.start_time < now:
-            raise ValidationError({'start_time': 'Дата начала не может быть в прошлом.'})
-        if self.start_time and self.end_time and self.start_time >= self.end_time:
-            raise ValidationError('Дата начала должна быть строго раньше даты окончания.')
+
+        def clean(self):
+            if self.start_time and self.end_time and self.start_time >= self.end_time:
+                raise ValidationError('Дата начала должна быть строго раньше даты окончания.')
 
     def save(self, *args, **kwargs):
-        # ❌ УДАЛЕНО: self.full_clean()
-        # Валидацию делает Form/ModelForm, а не save()
         super().save(*args, **kwargs)
 
     def update_status(self):
@@ -104,7 +101,6 @@ class Mailing(models.Model):
     def send(self):
         """
         Запуск рассылки.
-        ВАЖНО: Использует django.core.mail.send_mail вместо ручного smtplib.
         Это позволяет тестировать отправку через EMAIL_BACKEND='console' в settings.py
         """
         now = timezone.now()
