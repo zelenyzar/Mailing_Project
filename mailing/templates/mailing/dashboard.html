@@ -58,15 +58,17 @@
                 </tr>
             </thead>
             <tbody>
-                {% for mailing in Mailing.objects.order_by('-start_time')|slice:":5" %}
+                {% for mailing in latest_mailings %}
                 <tr>
                     <td>#{{ mailing.pk }}</td>
                     <td>
-                        <span class="badge bg-{{ mailing.status|lower }}">{{ mailing.status }}</span>
+                        {% with status_class=mailing.status|lower %}
+                        <span class="badge bg-{{ status_class }}">{{ mailing.status }}</span>
+                        {% endwith %}
                     </td>
                     <td>{{ mailing.start_time|date:"d.m.Y H:i" }} — {{ mailing.end_time|date:"d.m.Y H:i" }}</td>
                     <td>{{ mailing.message.subject }}</td>
-                    <td>{{ mailing.recipients.count }}</td>
+                    <td>{{ mailing.recipients.all|length }}</td>
                     <td>
                         <a href="{% url 'mailing:mailing_detail' mailing.pk %}" class="btn btn-sm btn-outline-primary me-1">Детали</a>
                         <a href="{% url 'mailing:mailing_send' mailing.pk %}" class="btn btn-sm btn-success">Отправить</a>

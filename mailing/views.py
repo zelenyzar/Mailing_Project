@@ -152,6 +152,7 @@ def mailing_send(request, pk):
 # --- Dashboard ---
 def dashboard(request):
     now = timezone.now()
+    latest_mailings = Mailing.objects.order_by('-start_time')[:5]
     total_mailings = Mailing.objects.count()
     unique_recipients = Client.objects.count()
     active_mailings = Mailing.objects.filter(
@@ -162,5 +163,6 @@ def dashboard(request):
         'total_mailings': total_mailings,
         'active_mailings': active_mailings,
         'unique_recipients': unique_recipients,
+        'latest_mailings': latest_mailings,
     }
     return render(request, 'mailing/dashboard.html', context)
