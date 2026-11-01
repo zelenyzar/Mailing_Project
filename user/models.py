@@ -6,7 +6,6 @@ import uuid
 
 
 class UserManager(BaseUserManager):
-    """Менеджер для кастомной модели пользователя с email как логином."""
 
     def create_user(self, email, password=None, **extra_fields):
         if not email:
@@ -31,16 +30,10 @@ class UserManager(BaseUserManager):
 
 
 class User(AbstractUser):
-    """
-    Кастомная модель пользователя.
-    Используем email как логин.
-    """
     email = models.EmailField(unique=True, verbose_name='Email')
 
-    # Поле для токена подтверждения регистрации
     verification_token = models.CharField(max_length=32, null=True, blank=True)
 
-    # Дата истечения токена
     token_expires_at = models.DateTimeField(null=True, blank=True)
 
     username = None

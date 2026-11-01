@@ -11,14 +11,12 @@
                 <span class="badge bg-{{ object.status|lower }}">{{ object.status }}</span>
             </div>
             <div class="card-body">
-                <!-- Основная информация -->
                 <p><strong>Статус:</strong> {{ object.status }}</p>
                 <p><strong>Сообщение:</strong> {{ object.message.subject }}</p>
                 <p><strong>Период:</strong>
                     {{ object.start_time|date:"d.m.Y H:i" }} — {{ object.end_time|date:"d.m.Y H:i" }}
                 </p>
 
-                <!-- Статистика (используем переменные из view) -->
                 <div class="mt-4 p-3 bg-light rounded">
                     <h5>Статистика отправки</h5>
                     <ul class="list-unstyled">
@@ -28,7 +26,6 @@
                     </ul>
                 </div>
 
-                <!-- Список получателей (пример) -->
                 <h5 class="mt-4">Получатели ({{ object.recipients.count }})</h5>
                 <ul class="list-group">
                     {% for client in object.recipients.all %}
@@ -38,7 +35,6 @@
                     {% endfor %}
                 </ul>
 
-                <!-- Кнопка отправки -->
                 <hr>
                 <form method="post" action="{% url 'mailing:mailing_send' object.pk %}">
                     {% csrf_token %}
