@@ -1,45 +1,40 @@
-from django.shortcuts import get_object_or_404
 from django.http import HttpResponseForbidden
+from django.contrib.auth import get_user_model
+
+User = get_user_model()
 
 
-def is_manager(user):
-    """Проверяет, является ли пользователь менеджером."""
-    return user.is_staff
+def is_manager(user: User):
+    if not user or not user.is_authenticated:
+        return False
+
+    if user.groups.filter(name='manager').exists():
+        return True
 
 
 class OwnerOrManagerMixin:
-    """
-    Миксин для ListView, DetailView, UpdateView, DeleteView.
-    Возвращает queryset:
-      - Если пользователь обычный: только его объекты.
-      - Если менеджер: все объекты.
-    """
 
     def get_queryset(self):
         qs = super().get_queryset()
-        if is_manager(self.request.user):
+        user = self.request.user
+
+        if is_manager(user):
             return qs
-        # Обычные пользователи видят только свои данные
-        return qs.filter(owner=self.request.user)
+
+        return qs.filter(owner=user)
 
 
 class OwnerCheckMixin:
-    """
-    Миксин для UpdateView и DeleteView.
-    Проверяет, что текущий пользователь является владельцем объекта.
-    Менеджеры могут редактировать/удалять всё.
-    """
 
     def dispatch(self, request, *args, **kwargs):
+        user = request.user
+
         obj = self.get_object()
 
-        # Если это менеджер - разрешаем
-        if is_manager(request.user):
+        if is_manager(user):
             return super().dispatch(request, *args, **kwargs)
 
-        # Если владелец - разрешаем
-        if obj.owner == request.user:
+        if hasattr(obj, 'owner') and obj.owner == user:
             return super().dispatch(request, *args, **kwargs)
 
-        # Иначе - 403 Forbidden
-        return HttpResponseForbidden("Вы не можете редактировать чужие данные.")
+        return HttpResponseForbidden("Вы не можете редактировать или удалять чужие данные.")
