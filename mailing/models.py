@@ -230,3 +230,5 @@ class Mailing(models.Model):
 
         all_sent = len(errors) == 0
         return all_sent, errors
+
+
