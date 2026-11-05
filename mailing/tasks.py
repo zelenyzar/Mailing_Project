@@ -4,6 +4,10 @@ from django.core.mail import send_mail
 from django.conf import settings
 
 
+def update_mailing_statuses():
+    Mailing.update_all_statuses()
+
+
 def run_mailing_task(mailing_id):
     try:
         mailing = Mailing.objects.prefetch_related('recipients', 'message').get(pk=mailing_id)

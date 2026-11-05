@@ -79,6 +79,37 @@ class MailingAttempt(models.Model):
     def __str__(self):
         return f'{self.mailing.id} -> {self.client.email} ({self.status})'
 
+    def update_status(self):
+        """Пересчитывает статус одной рассылки относительно текущего времени."""
+        if self.status == self.STATUS_BLOCKED:
+            return self.status
+
+        now = timezone.now()
+
+        if self.status == self.STATUS_CREATED and self.start_time <= now <= self.end_time:
+            self.status = self.STATUS_RUNNING
+        elif self.end_time < now:
+            self.status = self.STATUS_COMPLETED
+
+        if self.pk:
+            self.save(update_fields=['status'])
+        return self.status
+
+    @classmethod
+    def update_all_statuses(cls):
+        now = timezone.now()
+        with transaction.atomic():
+            cls.objects.filter(
+                status=cls.STATUS_CREATED,
+                start_time__lte=now,
+                end_time__gte=now,
+            ).update(status=cls.STATUS_RUNNING)
+
+            cls.objects.filter(
+                status__in=[cls.STATUS_CREATED, cls.STATUS_RUNNING],
+                end_time__lt=now,
+            ).update(status=cls.STATUS_COMPLETED)
+
 
 class Mailing(models.Model):
     STATUS_CREATED = 'Создана'

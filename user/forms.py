@@ -1,4 +1,5 @@
 from django import forms
+from django.contrib.auth import authenticate
 from django.contrib.auth.forms import UserCreationForm, AuthenticationForm, PasswordResetForm, SetPasswordForm
 from user.models import User
 
@@ -97,4 +98,9 @@ class CustomPasswordResetForm(StyleFormMixin, PasswordResetForm):
         return active_users
 
 class CustomSetPasswordForm(StyleFormMixin, SetPasswordForm):
-    pass
+    def save(self, user, commit=True):
+        new_password = self.cleaned_data['new_password1']
+        user.set_password(new_password)
+        if commit:
+            user.save()
+        return user

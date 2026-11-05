@@ -1,5 +1,7 @@
 import uuid
 from datetime import timedelta
+
+from django.core.exceptions import ObjectDoesNotExist
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import login, authenticate, logout
 from django.contrib.auth.decorators import login_required
@@ -8,7 +10,7 @@ from django.conf import settings
 from django.utils import timezone
 from django.template.loader import render_to_string
 from django.core.mail import send_mail
-from django.utils.http import urlsafe_base64_encode
+from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.utils.encoding import force_bytes
 from django.contrib.auth.tokens import default_token_generator
 
@@ -24,7 +26,7 @@ def register(request):
 
             token = str(uuid.uuid4())[:32]
             user.verification_token = token
-            user.token_expires_at = timezone.now() + timedelta(hours=24)
+            user.token_expires_at = timezone.now() + timezone.timedelta(hours=24)
             user.is_active = False
             user.save()
 
@@ -56,6 +58,28 @@ def register(request):
 
     return render(request, 'user/register.html', {'form': form})
 
+def email_verification(request, token):
+    try:
+        user = User.objects.get(verification_token=token)
+        if user.is_active:
+            messages.warning(request, 'Этот аккаунт уже подтвержден.')
+            return redirect('login')
+
+        if user.token_expires_at < timezone.now():
+            messages.error(request, 'Срок действия ссылки истек. Пожалуйста, зарегистрируйтесь заново.')
+            return redirect('register')
+
+        user.is_active = True
+        user.verification_token = None
+        user.token_expires_at = None
+        user.save()
+
+        messages.success(request, 'Аккаунт успешно подтвержден! Теперь вы можете войти в систему.')
+        return redirect('login')
+    except ObjectDoesNotExist:
+        messages.error(request, 'Неверная или устаревшая ссылка подтверждения.')
+        return redirect('home')
+
 
 def email_verification(request, token):
     try:
@@ -79,7 +103,7 @@ def email_verification(request, token):
 
     except Exception:
         messages.error(request, 'Неверная или устаревшая ссылка подтверждения.')
-        return redirect('home')
+        return redirect('mailing')
 
 def custom_login(request):
     if request.user.is_authenticated:
@@ -155,8 +179,6 @@ def password_reset_request(request):
 
 
 def password_reset_confirm(request, uidb64, token):
-    from django.utils.http import urlsafe_base64_decode
-
     try:
         uid = urlsafe_base64_decode(uidb64).decode()
         user = User.objects.get(pk=uid)
@@ -172,7 +194,7 @@ def password_reset_confirm(request, uidb64, token):
                 return redirect('login')
         else:
             form = CustomSetPasswordForm(user)
-        return render(request, 'user/password_reset_confirm.html', {'form': form})
+            return render(request, 'user/password_reset_confirm.html', {'form': form})
     else:
         messages.error(request, 'Ссылка для сброса пароля недействительна или устарела.')
         return redirect('password_reset')

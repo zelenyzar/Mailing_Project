@@ -52,23 +52,36 @@
             </tr>
         </thead>
         <tbody>
-            {% for mailing in last_mailings %}
-            <tr>
-                <td>#{{ mailing.pk }}</td>
-                <td>
-                    <span class="badge bg-{{ mailing.status|lower }}">{{ mailing.status }}</span>
-                </td>
-                <td>{{ mailing.start_time|date:"d.m.Y H:i" }} — {{ mailing.end_time|date:"d.m.Y H:i" }}</td>
-                <td>{{ mailing.message.subject }}</td>
-                <td>{{ mailing.recipients.count }}</td>
-                <td>
-                    <a href="{% url 'mailing:mailing_detail' mailing.pk %}" class="btn btn-sm btn-outline-primary me-1">Детали</a>
-                    <a href="{% url 'mailing:mailing_send' mailing.pk %}" class="btn btn-sm btn-success">Отправить</a>
-                </td>
-            </tr>
-            {% empty %}
-            <tr><td colspan="6" class="text-center py-4 text-muted">Нет рассылок</td></tr>
-            {% endfor %}
+        {% for mailing in last_mailings %}
+        <tr>
+            <td>#{{ mailing.pk }}</td>
+            <td>
+                {% if mailing.status == 'Запущена' %}
+                <span class="badge bg-success">{{ mailing.status }}</span>
+                {% elif mailing.status == 'Завершена' %}
+                <span class="badge bg-secondary">{{ mailing.status }}</span>
+                {% elif mailing.status == 'Заблокирована' %}
+                <span class="badge bg-danger">{{ mailing.status }}</span>
+                {% else %}
+                <span class="badge bg-warning text-dark">{{ mailing.status }}</span>
+                {% endif %}
+            </td>
+            <td>{{ mailing.start_time|date:"d.m.Y H:i" }} — {{ mailing.end_time|date:"d.m.Y H:i" }}</td>
+            <td>{{ mailing.message.subject }}</td>
+            <td>{{ mailing.recipients.count }}</td>
+            <td>
+                <a href="{% url 'mailing:mailing_detail' mailing.pk %}" class="btn btn-sm btn-outline-primary me-1">Детали</a>
+                {% if mailing.status == 'Создана' or mailing.status == 'Запущена' %}
+                <form method="post" action="{% url 'mailing:mailing_send' mailing.pk %}" class="d-inline">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-sm btn-success">Отправить</button>
+                </form>
+                {% endif %}
+            </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="6" class="text-center py-4 text-muted">Нет рассылок</td></tr>
+        {% endfor %}
         </tbody>
     </table>
 </div>

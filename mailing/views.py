@@ -50,7 +50,7 @@ class ClientUpdateView(OwnerCheckMixin, UpdateView):
 
 class ClientDeleteView(OwnerCheckMixin, DeleteView):
     model = Client
-    template_name = 'includes/confirm_delete.html'
+    template_name = 'mailing/includes/confirm_delete.html'
     success_url = '/clients/'
 
     def form_valid(self, form):
@@ -99,7 +99,7 @@ class MessageUpdateView(UpdateView):
 
 class MessageDeleteView(DeleteView):
     model = Message
-    template_name = 'includes/confirm_delete.html'
+    template_name = 'mailing/includes/confirm_delete.html'
     success_url = reverse_lazy('mailing:message_list')
 
     def get_context_data(self, **kwargs):
@@ -116,6 +116,10 @@ class MessageDeleteView(DeleteView):
 # --- Mailing ---
 class MailingListView(OwnerOrManagerMixin, ListView):
     model = Mailing
+
+    def get_queryset(self):
+        Mailing.update_all_statuses()
+        return super().get_queryset()
 
 
 class MailingDetailView(OwnerOrManagerMixin, DetailView):
@@ -186,7 +190,7 @@ class MailingUpdateView(OwnerCheckMixin, UpdateView):
 
 class MailingDeleteView(OwnerCheckMixin, DeleteView):
     model = Mailing
-    template_name = 'includes/confirm_delete.html'
+    template_name = 'mailing/includes/confirm_delete.html'
     success_url = '/mailings/'
 
     def get_context_data(self, **kwargs):
@@ -208,6 +212,7 @@ def mailing_send(request, pk):
     mailing = get_object_or_404(Mailing, pk=pk)
     if request.method == 'POST':
         success, errors = mailing.send()
+        mailing.update_status()
 
         cache.delete('statistics_global')
         if mailing.owner_id:
@@ -219,16 +224,18 @@ def mailing_send(request, pk):
 
         if success:
             messages.success(request, f'Рассылка #{mailing.pk} успешно отправлена всем получателям!')
+            return redirect('mailing:mailing_detail', pk=mailing.pk)
         else:
             error_text = '\n'.join(errors)
             messages.error(request, f'Частичная ошибка при отправке рассылки #{mailing.pk}:\n{error_text}')
-        return redirect('mailing:mailing_detail', pk=mailing.pk)
+            return redirect('mailing:mailing_detail', pk=mailing.pk)
     return redirect('mailing:mailing_detail', pk=mailing.pk)
 
 
 # --- Dashboard ---
 @login_required
 def dashboard(request):
+    Mailing.update_all_statuses()
     now = timezone.now()
 
     context = cache.get_or_set(
@@ -237,12 +244,20 @@ def dashboard(request):
             'total_mailings': Mailing.objects.count(),
             'unique_recipients': Client.objects.count(),
             'active_mailings': Mailing.objects.filter(
+                status=Mailing.STATUS_RUNNING,
                 start_time__lte=now,
                 end_time__gte=now
             ).count(),
         },
-        timeout=60 * 5,  # 5 минут
+        timeout=60,  # раньше было 60 * 5
     )
+
+    context['last_mailings'] = (
+        Mailing.objects
+        .select_related('message')
+        .order_by('-start_time')[:5]
+    )
+
     return render(request, 'mailing/dashboard.html', context)
 
 @login_required

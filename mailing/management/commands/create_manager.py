@@ -1,4 +1,3 @@
-# user/management/commands/create_manager.py
 from django.core.management.base import BaseCommand
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group, Permission
@@ -40,7 +39,7 @@ class Command(BaseCommand):
             if not user.is_staff:
                 user.is_staff = True
                 user.save()
-                self.stdout.write(self.style.WARNING(f'⚠️ Пользователь "{email}" уже существует. Пароль не изменён.'))
+                self.stdout.write(self.style.WARNING(f'Пользователь "{email}" уже существует. Пароль не изменён.'))
                 self.stdout.write(self.style.SUCCESS('Статус "Staff" (доступ в админку) принудительно включен.'))
             else:
                 self.stdout.write(f'Пользователь "{email}" уже существует. Пароль и статус не изменены.')
@@ -61,7 +60,7 @@ class Command(BaseCommand):
         ]
 
         found_permissions = set()
-        self.stdout.write('\n🔍 Начинаю поиск подходящих прав...')
+        self.stdout.write('\n Начинаю поиск подходящих прав...')
 
         for keyword in keywords:
             perms = Permission.objects.filter(name__icontains=keyword)
@@ -75,8 +74,8 @@ class Command(BaseCommand):
         if found_permissions:
             user.user_permissions.add(*found_permissions)
             self.stdout.write(
-                self.style.SUCCESS(f'\n✅ Автоматически выдано {len(found_permissions)} прав пользователю "{email}".'))
+                self.style.SUCCESS(f'\n Автоматически выдано {len(found_permissions)} прав пользователю "{email}".'))
         else:
-            self.stdout.write(self.style.WARNING('\n⚠️ Не найдено ни одного подходящего права по ключевым словам!'))
+            self.stdout.write(self.style.WARNING('\n Не найдено ни одного подходящего права по ключевым словам!'))
 
-        self.stdout.write('\n🏁 Готово! Теперь пользователь может войти в админку.')
+        self.stdout.write('\n Готово! Теперь пользователь может войти в админку.')
