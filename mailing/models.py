@@ -11,7 +11,7 @@ User = get_user_model()
 
 class Client(models.Model):
     email = models.EmailField(
-        max_length=100, unique=True, verbose_name='Email',
+        max_length=100, verbose_name='Email',          # unique=True убрали
         validators=[validate_email], help_text='введите почту клиента'
     )
     full_name = models.CharField(
@@ -28,9 +28,16 @@ class Client(models.Model):
         verbose_name = 'Получатель рассылки'
         verbose_name_plural = 'Получатели рассылки'
         ordering = ['email']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['owner', 'email'],
+                name='unique_client_email_per_owner'
+            ),
+        ]
 
     def __str__(self):
         return f"{self.email}"
+
 
 
 class Message(models.Model):
@@ -59,7 +66,7 @@ class MailingAttempt(models.Model):
         (STATUS_FAIL, 'Не успешно'),
     ]
 
-    mailing = models.ForeignKey('Mailing', on_delete=models.CASCADE, related_name='attempts')
+    mailing = models.ForeignKey('mailing.Mailing', on_delete=models.CASCADE, related_name='attempts')
     client = models.ForeignKey(Client, on_delete=models.CASCADE)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES)
     error_message = models.TextField(blank=True, null=True, default='', verbose_name='Текст ошибки')
@@ -78,37 +85,6 @@ class MailingAttempt(models.Model):
 
     def __str__(self):
         return f'{self.mailing.id} -> {self.client.email} ({self.status})'
-
-    def update_status(self):
-        """Пересчитывает статус одной рассылки относительно текущего времени."""
-        if self.status == self.STATUS_BLOCKED:
-            return self.status
-
-        now = timezone.now()
-
-        if self.status == self.STATUS_CREATED and self.start_time <= now <= self.end_time:
-            self.status = self.STATUS_RUNNING
-        elif self.end_time < now:
-            self.status = self.STATUS_COMPLETED
-
-        if self.pk:
-            self.save(update_fields=['status'])
-        return self.status
-
-    @classmethod
-    def update_all_statuses(cls):
-        now = timezone.now()
-        with transaction.atomic():
-            cls.objects.filter(
-                status=cls.STATUS_CREATED,
-                start_time__lte=now,
-                end_time__gte=now,
-            ).update(status=cls.STATUS_RUNNING)
-
-            cls.objects.filter(
-                status__in=[cls.STATUS_CREATED, cls.STATUS_RUNNING],
-                end_time__lt=now,
-            ).update(status=cls.STATUS_COMPLETED)
 
 
 class Mailing(models.Model):
@@ -153,8 +129,23 @@ class Mailing(models.Model):
         if self.start_time and self.end_time and self.start_time >= self.end_time:
             raise ValidationError('Дата начала должна быть строго раньше даты окончания.')
 
+    def update_status(self):
+        now = timezone.now()
+        if self.status == self.STATUS_BLOCKED:
+            return
+        if self.start_time and self.end_time:
+            if self.start_time <= now <= self.end_time:
+                self.status = self.STATUS_RUNNING
+            elif now > self.end_time:
+                self.status = self.STATUS_COMPLETED
+        self.save(update_fields=['status'])
+
     @classmethod
     def update_all_statuses(cls):
+        """
+        Фоновая задача: обновляет статусы всех рассылок по времени.
+        Вызывать из Celery/RQ, а не из save().
+        """
         now = timezone.now()
         with transaction.atomic():
             cls.objects.filter(
@@ -169,6 +160,11 @@ class Mailing(models.Model):
             ).update(status=cls.STATUS_COMPLETED)
 
     def send(self):
+        """
+        ВАЖНО: Этот метод НЕЛЬЗЯ вызывать напрямую из View.
+        Он должен быть обернут в задачу Celery/RQ.
+        Возвращает кортеж (успех, список ошибок).
+        """
         now = timezone.now()
 
         if self.status == self.STATUS_BLOCKED:
@@ -230,5 +226,3 @@ class Mailing(models.Model):
 
         all_sent = len(errors) == 0
         return all_sent, errors
-
-

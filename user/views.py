@@ -1,15 +1,13 @@
 import uuid
-from datetime import timedelta
-
-from django.core.exceptions import ObjectDoesNotExist
 from django.shortcuts import render, redirect, get_object_or_404
-from django.contrib.auth import login, authenticate, logout
+from django.contrib.auth import login, authenticate
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.conf import settings
 from django.utils import timezone
 from django.template.loader import render_to_string
 from django.core.mail import send_mail
+from mailing.permissions import is_manager
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.utils.encoding import force_bytes
 from django.contrib.auth.tokens import default_token_generator
@@ -31,7 +29,7 @@ def register(request):
             user.save()
 
             subject = 'Подтверждение регистрации в системе рассылок'
-            message = render_to_string('user/email_verification.html', {
+            message = render_to_string('mailing/confirm_email.html', {
                 'user': user,
                 'token': token,
                 'base_url': settings.BASE_URL,
@@ -48,37 +46,15 @@ def register(request):
                 )
                 messages.success(request,
                                  'Регистрация успешна! Мы отправили письмо для подтверждения вашего email. Проверьте папку «Спам».')
-                return redirect('login')
+                return redirect('user:login')
             except Exception as e:
                 user.delete()
                 messages.error(request, f'Не удалось отправить письмо. Ошибка: {str(e)}')
-                return redirect('register')
+                return redirect('user:register')
     else:
         form = UserRegisterForm()
 
     return render(request, 'user/register.html', {'form': form})
-
-def email_verification(request, token):
-    try:
-        user = User.objects.get(verification_token=token)
-        if user.is_active:
-            messages.warning(request, 'Этот аккаунт уже подтвержден.')
-            return redirect('login')
-
-        if user.token_expires_at < timezone.now():
-            messages.error(request, 'Срок действия ссылки истек. Пожалуйста, зарегистрируйтесь заново.')
-            return redirect('register')
-
-        user.is_active = True
-        user.verification_token = None
-        user.token_expires_at = None
-        user.save()
-
-        messages.success(request, 'Аккаунт успешно подтвержден! Теперь вы можете войти в систему.')
-        return redirect('login')
-    except ObjectDoesNotExist:
-        messages.error(request, 'Неверная или устаревшая ссылка подтверждения.')
-        return redirect('home')
 
 
 def email_verification(request, token):
@@ -87,11 +63,11 @@ def email_verification(request, token):
 
         if user.is_active:
             messages.warning(request, 'Этот аккаунт уже подтвержден.')
-            return redirect('login')
+            return redirect('user:login')
 
         if user.token_expires_at and user.token_expires_at < timezone.now():
             messages.error(request, 'Срок действия ссылки истек. Пожалуйста, зарегистрируйтесь заново.')
-            return redirect('register')
+            return redirect('user:register')
 
         user.is_active = True
         user.verification_token = None
@@ -99,11 +75,11 @@ def email_verification(request, token):
         user.save()
 
         messages.success(request, 'Аккаунт успешно подтвержден! Теперь вы можете войти в систему.')
-        return redirect('login')
+        return redirect('user:login')
 
     except Exception:
         messages.error(request, 'Неверная или устаревшая ссылка подтверждения.')
-        return redirect('mailing')
+        return redirect('mailing:dashboard')
 
 def custom_login(request):
     if request.user.is_authenticated:
@@ -125,20 +101,13 @@ def custom_login(request):
                 else:
                     messages.warning(request,
                                      'Ваш аккаунт не подтвержден. Проверьте почту и перейдите по ссылке из письма.')
-                    return redirect('login')
+                    return redirect('user:login')
             else:
                 messages.error(request, 'Неверный email или пароль.')
     else:
         form = CustomLoginForm()
 
     return render(request, 'user/login.html', {'form': form})
-
-
-@login_required
-def logout_view(request):
-    logout(request)
-    messages.info(request, 'Вы успешно вышли из системы.')
-    return redirect('mailing')
 
 def password_reset_request(request):
     if request.method == 'POST':
@@ -171,11 +140,11 @@ def password_reset_request(request):
                 messages.success(request,
                                  'Если такой пользователь существует, письмо со ссылкой на сброс пароля было отправлено.')
 
-            return redirect('login')
+            return redirect('user:login')
     else:
         form = CustomPasswordResetForm()
 
-    return render(request, 'user/password_reset.html', {'form': form})
+    return render(request, 'user/password_reset_form.html', {'form': form})
 
 
 def password_reset_confirm(request, uidb64, token):
@@ -191,16 +160,13 @@ def password_reset_confirm(request, uidb64, token):
             if form.is_valid():
                 form.save()
                 messages.success(request, 'Пароль успешно изменен! Вы можете войти в систему с новым паролем.')
-                return redirect('login')
+                return redirect('user:login')
         else:
             form = CustomSetPasswordForm(user)
             return render(request, 'user/password_reset_confirm.html', {'form': form})
     else:
         messages.error(request, 'Ссылка для сброса пароля недействительна или устарела.')
-        return redirect('password_reset')
-
-def is_manager(user):
-    return getattr(user, 'is_manager', False)
+        return redirect('user:password_reset')
 
 
 def toggle_user_active(request, user_id):
@@ -210,7 +176,7 @@ def toggle_user_active(request, user_id):
     """
     if not is_manager(request.user):
         messages.error(request, "У вас нет прав для управления пользователями.")
-        return redirect('home')
+        return redirect('mailing:dashboard')
 
     target_user = get_object_or_404(User, pk=user_id)
 
@@ -231,3 +197,13 @@ def toggle_user_active(request, user_id):
 
     messages.add_message(request, level, msg)
     return redirect('user:user_list')
+
+@login_required
+def user_list(request):
+    """Список всех пользователей. Доступен только менеджерам."""
+    if not is_manager(request.user):
+        messages.error(request, "У вас нет прав для просмотра списка пользователей.")
+        return redirect('mailing:dashboard')
+
+    users = User.objects.all().order_by('email')
+    return render(request, 'user/user_list.html', {'users': users})

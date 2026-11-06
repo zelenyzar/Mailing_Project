@@ -24,7 +24,7 @@ class ClientListView(OwnerOrManagerMixin, ListView):
     model = Client
 
 
-class ClientDetailView(LoginRequiredMixin, OwnerOrManagerMixin, DetailView):
+class ClientDetailView(OwnerOrManagerMixin, DetailView):
     model = Client
 
 

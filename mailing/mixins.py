@@ -18,4 +18,4 @@ class OwnerCheckMixin(LoginRequiredMixin, UserPassesTestMixin):
 
     def test_func(self):
         obj = self.get_object()
-        return obj.owner_id == self.request.user.pk
+        return obj.owner_id == self.request.user.pk or is_manager(self.request.user)
