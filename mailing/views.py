@@ -13,6 +13,7 @@ import django_rq
 from django.core.cache import cache
 
 from .mixins import OwnerCheckMixin, OwnerOrManagerMixin
+from .permissions import is_manager
 from .tasks import run_mailing_task
 
 from mailing.models import Client, Message, Mailing, MailingAttempt
@@ -27,7 +28,7 @@ class ClientDetailView(LoginRequiredMixin, OwnerOrManagerMixin, DetailView):
     model = Client
 
 
-class ClientCreateView(CreateView):
+class ClientCreateView(LoginRequiredMixin, CreateView):
     model = Client
     form_class = ClientForm
 
@@ -73,15 +74,15 @@ class ClientDeleteView(OwnerCheckMixin, DeleteView):
 
 
 # --- Message ---
-class MessageListView(ListView):
+class MessageListView(OwnerOrManagerMixin, ListView):
     model = Message
 
 
-class MessageDetailView(DetailView):
+class MessageDetailView(OwnerOrManagerMixin, DetailView):
     model = Message
 
 
-class MessageCreateView(CreateView):
+class MessageCreateView(LoginRequiredMixin, CreateView):
     model = Message
     form_class = MessageForm
     success_url = reverse_lazy('mailing:message_list')
@@ -91,13 +92,13 @@ class MessageCreateView(CreateView):
         return super().form_valid(form)
 
 
-class MessageUpdateView(UpdateView):
+class MessageUpdateView(OwnerCheckMixin, UpdateView):
     model = Message
     form_class = MessageForm
     success_url = reverse_lazy('mailing:message_list')
 
 
-class MessageDeleteView(DeleteView):
+class MessageDeleteView(OwnerCheckMixin, DeleteView):
     model = Message
     template_name = 'mailing/includes/confirm_delete.html'
     success_url = reverse_lazy('mailing:message_list')
@@ -149,9 +150,16 @@ class MailingDetailView(OwnerOrManagerMixin, DetailView):
         return context
 
 
-class MailingCreateView(CreateView):
+class MailingCreateView(LoginRequiredMixin, CreateView):
     model = Mailing
     form_class = MailingForm
+
+    def get_form(self, form_class=None):
+        form = super().get_form(form_class)
+        if not is_manager(self.request.user):
+            form.fields['message'].queryset = Message.objects.filter(owner=self.request.user)
+            form.fields['recipients'].queryset = Client.objects.filter(owner=self.request.user)
+        return form
 
     def form_valid(self, form):
         form.instance.owner = self.request.user
@@ -170,6 +178,13 @@ class MailingCreateView(CreateView):
 class MailingUpdateView(OwnerCheckMixin, UpdateView):
     model = Mailing
     form_class = MailingForm
+
+    def get_form(self, form_class=None):
+        form = super().get_form(form_class)
+        if not is_manager(self.request.user):
+            form.fields['message'].queryset = Message.objects.filter(owner=self.request.user)
+            form.fields['recipients'].queryset = Client.objects.filter(owner=self.request.user)
+        return form
 
     def form_valid(self, form):
         response = super().form_valid(form)
@@ -210,25 +225,25 @@ class MailingDeleteView(OwnerCheckMixin, DeleteView):
 @require_POST
 def mailing_send(request, pk):
     mailing = get_object_or_404(Mailing, pk=pk)
-    if request.method == 'POST':
-        success, errors = mailing.send()
-        mailing.update_status()
 
-        cache.delete('statistics_global')
-        if mailing.owner_id:
-            cache.delete(f'statistics_user_{mailing.owner_id}')
-        cache.delete('mailing_list_all')
-        if mailing.owner_id:
-            cache.delete(f'mailing_list_{mailing.owner_id}')
+    if not is_manager(request.user) and mailing.owner_id != request.user.pk:
+        return HttpResponseForbidden("Доступ запрещен")
+
+    success, errors = mailing.send()
+    mailing.update_status()
+
+    cache.delete('statistics_global')
+    if mailing.owner_id:
+        cache.delete(f'statistics_user_{mailing.owner_id}')
+        cache.delete(f'mailing_list_{mailing.owner_id}')
         cache.delete(f'dashboard_{mailing.owner_id}')
+    cache.delete('mailing_list_all')
 
-        if success:
-            messages.success(request, f'Рассылка #{mailing.pk} успешно отправлена всем получателям!')
-            return redirect('mailing:mailing_detail', pk=mailing.pk)
-        else:
-            error_text = '\n'.join(errors)
-            messages.error(request, f'Частичная ошибка при отправке рассылки #{mailing.pk}:\n{error_text}')
-            return redirect('mailing:mailing_detail', pk=mailing.pk)
+    if success:
+        messages.success(request, f'Рассылка #{mailing.pk} успешно отправлена всем получателям!')
+    else:
+        error_text = '\n'.join(errors)
+        messages.error(request, f'Частичная ошибка при отправке рассылки #{mailing.pk}:\n{error_text}')
     return redirect('mailing:mailing_detail', pk=mailing.pk)
 
 
@@ -238,22 +253,29 @@ def dashboard(request):
     Mailing.update_all_statuses()
     now = timezone.now()
 
+    if is_manager(request.user):
+        mailings_qs = Mailing.objects.all()
+        clients_qs = Client.objects.all()
+    else:
+        mailings_qs = Mailing.objects.filter(owner=request.user)
+        clients_qs = Client.objects.filter(owner=request.user)
+
     context = cache.get_or_set(
         f'dashboard_{request.user.pk}',
         lambda: {
-            'total_mailings': Mailing.objects.count(),
-            'unique_recipients': Client.objects.count(),
-            'active_mailings': Mailing.objects.filter(
+            'total_mailings': mailings_qs.count(),
+            'unique_recipients': clients_qs.count(),
+            'active_mailings': mailings_qs.filter(
                 status=Mailing.STATUS_RUNNING,
                 start_time__lte=now,
                 end_time__gte=now
             ).count(),
         },
-        timeout=60,  # раньше было 60 * 5
+        timeout=60,
     )
 
     context['last_mailings'] = (
-        Mailing.objects
+        mailings_qs
         .select_related('message')
         .order_by('-start_time')[:5]
     )
@@ -266,7 +288,7 @@ def statistics_report(request):
     user = request.user
 
     if is_manager(user):
-        mailings_qs = Mailing.objects.filter(owner=user)
+        mailings_qs = Mailing.objects.all()
         attempts_qs = MailingAttempt.objects.all()
     else:
         mailings_qs = Mailing.objects.filter(owner=user)
@@ -306,9 +328,7 @@ def statistics_report(request):
 
     return render(request, 'mailing/statistics_report.html', context)
 
-def is_manager(user):
-    return user.groups.filter(name='manager').exists()
-
+@login_required
 def block_mailing(request, pk):
     if not is_manager(request.user):
         return HttpResponseForbidden("Доступ запрещен")

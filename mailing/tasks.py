@@ -1,7 +1,13 @@
+import logging
+
 from django.utils import timezone
-from .models import Mailing, MailingAttempt
 from django.core.mail import send_mail
 from django.conf import settings
+from django.core.cache import cache
+
+from .models import Mailing, MailingAttempt
+
+logger = logging.getLogger(__name__)
 
 
 def update_mailing_statuses():
@@ -17,7 +23,7 @@ def run_mailing_task(mailing_id):
         if mailing.status == Mailing.STATUS_BLOCKED:
             return {"status": "blocked", "message": "Рассылка заблокирована"}
 
-        if not (mailing.start_time <= now <= mailing.end_time):
+        if now > mailing.end_time:
             mailing.status = Mailing.STATUS_COMPLETED
             mailing.save()
             return {"status": "completed", "message": "Время рассылки истекло"}
@@ -74,12 +80,15 @@ def run_mailing_task(mailing_id):
         if attempts_to_create:
             MailingAttempt.objects.bulk_create(attempts_to_create)
 
-        if error_count == 0:
-            mailing.status = Mailing.STATUS_COMPLETED
-        else:
-            mailing.status = Mailing.STATUS_COMPLETED
-
+        mailing.status = Mailing.STATUS_COMPLETED
         mailing.save()
+
+        if mailing.owner_id:
+            cache.delete('statistics_global')
+            cache.delete(f'statistics_user_{mailing.owner_id}')
+            cache.delete('mailing_list_all')
+            cache.delete(f'mailing_list_{mailing.owner_id}')
+            cache.delete(f'dashboard_{mailing.owner_id}')
 
         return {
             "status": "done",
@@ -90,5 +99,6 @@ def run_mailing_task(mailing_id):
 
     except Mailing.DoesNotExist:
         return {"status": "error", "message": "Рассылка не найдена"}
-    except Exception as e:
-        return {"status": "error", "message": str(e)}
+    except Exception:
+        logger.exception("Ошибка в задаче рассылки #%s", mailing_id)
+        return {"status": "error", "message": "Внутренняя ошибка"}

@@ -1,40 +1,23 @@
-from django.http import HttpResponseForbidden
-from django.contrib.auth import get_user_model
+from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 
-User = get_user_model()
-
-
-def is_manager(user: User):
-    if not user or not user.is_authenticated:
-        return False
-
-    if user.groups.filter(name='manager').exists():
-        return True
+from .permissions import is_manager
 
 
-class OwnerOrManagerMixin:
+class OwnerOrManagerMixin(LoginRequiredMixin):
+    """Для list/detail: менеджер видит всё, остальные — только свои объекты."""
 
     def get_queryset(self):
         qs = super().get_queryset()
-        user = self.request.user
-
-        if is_manager(user):
+        if is_manager(self.request.user):
             return qs
+        return qs.filter(owner=self.request.user)
 
-        return qs.filter(owner=user)
 
+class OwnerCheckMixin(LoginRequiredMixin, UserPassesTestMixin):
+    """Для update/delete: разрешено только владельцу или менеджеру."""
 
-class OwnerCheckMixin:
-
-    def dispatch(self, request, *args, **kwargs):
-        user = request.user
-
+    def test_func(self):
+        if is_manager(self.request.user):
+            return True
         obj = self.get_object()
-
-        if is_manager(user):
-            return super().dispatch(request, *args, **kwargs)
-
-        if hasattr(obj, 'owner') and obj.owner == user:
-            return super().dispatch(request, *args, **kwargs)
-
-        return HttpResponseForbidden("Вы не можете редактировать или удалять чужие данные.")
+        return obj.owner_id == self.request.user.pk

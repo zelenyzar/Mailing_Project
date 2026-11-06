@@ -18,7 +18,9 @@ from .views import (
   MailingUpdateView,
   MailingDeleteView,
   mailing_send,
-  dashboard, statistics_report
+  block_mailing,
+  dashboard,
+  statistics_report,
 )
 
 app_name = MailingConfig.name
@@ -45,6 +47,7 @@ urlpatterns = [
   path('mailing/<int:pk>/update/', MailingUpdateView.as_view(), name='mailing_update'),
   path('mailing/<int:pk>/delete/', MailingDeleteView.as_view(), name='mailing_delete'),
   path('mailing_send/<int:pk>/', views.mailing_send, name='mailing_send'),
+  path('mailing/<int:pk>/block/', block_mailing, name='block_mailing'),
 
   # --- Dashboard ---
   path('', dashboard, name='dashboard'),

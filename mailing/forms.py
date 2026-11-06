@@ -30,11 +30,13 @@ class MailingForm(forms.ModelForm):
         cleaned_data = super().clean()
         start_time = cleaned_data.get('start_time')
         end_time = cleaned_data.get('end_time')
-
         now = timezone.now()
 
         if start_time and start_time < now:
-            self.add_error('start_time', 'Дата начала не может быть в прошлом.')
+            if self.instance and self.instance.pk and self.instance.start_time == start_time:
+                pass  # дату не меняли — не ругаемся
+            else:
+                self.add_error('start_time', 'Дата начала не может быть в прошлом.')
 
         if start_time and end_time and start_time >= end_time:
             self.add_error(None, 'Дата начала должна быть раньше даты окончания.')

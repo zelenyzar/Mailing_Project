@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load user_tags %}
 
 {% block title %}Рассылка #{{ object.pk }}{% endblock %}
 
@@ -43,8 +44,21 @@
                         Отправить рассылку сейчас
                     </button>
                 </form>
+
+                {% if user|is_manager %}
+                <form method="post" action="{% url 'mailing:block_mailing' object.pk %}" class="mt-2">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-outline-danger">
+                        Заблокировать рассылку
+                    </button>
+                </form>
+                {% endif %}
             </div>
         </div>
     </div>
+</div>
+
+<div class="mt-3 text-center">
+    <a href="{% url 'mailing:mailing_list' %}" class="btn btn-outline-secondary">← Назад к списку</a>
 </div>
 {% endblock %}
