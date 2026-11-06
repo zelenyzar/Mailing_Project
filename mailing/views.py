@@ -23,6 +23,10 @@ from mailing.models import Client, Message, Mailing, MailingAttempt
 class ClientListView(OwnerOrManagerMixin, ListView):
     model = Client
 
+    def get_queryset(self):
+        key = f'client_list_{self.request.user.pk}'
+        return cache.get_or_set(key, lambda: list(super().get_queryset()), 60)
+
 
 class ClientDetailView(OwnerOrManagerMixin, DetailView):
     model = Client
@@ -77,6 +81,10 @@ class ClientDeleteView(OwnerCheckMixin, DeleteView):
 class MessageListView(OwnerOrManagerMixin, ListView):
     model = Message
 
+    def get_queryset(self):
+        key = f'message_list_{self.request.user.pk}'
+        return cache.get_or_set(key, lambda: list(super().get_queryset()), 60)
+
 
 class MessageDetailView(OwnerOrManagerMixin, DetailView):
     model = Message
@@ -89,7 +97,9 @@ class MessageCreateView(LoginRequiredMixin, CreateView):
 
     def form_valid(self, form):
         form.instance.owner = self.request.user
-        return super().form_valid(form)
+        response = super().form_valid(form)
+        cache.clear()
+        return response
 
 
 class MessageUpdateView(OwnerCheckMixin, UpdateView):
@@ -97,11 +107,21 @@ class MessageUpdateView(OwnerCheckMixin, UpdateView):
     form_class = MessageForm
     success_url = reverse_lazy('mailing:message_list')
 
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        cache.clear()
+        return response
+
 
 class MessageDeleteView(OwnerCheckMixin, DeleteView):
     model = Message
     template_name = 'mailing/includes/confirm_delete.html'
     success_url = reverse_lazy('mailing:message_list')
+
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        cache.clear()
+        return response
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -120,7 +140,18 @@ class MailingListView(OwnerOrManagerMixin, ListView):
 
     def get_queryset(self):
         Mailing.update_all_statuses()
-        return super().get_queryset().select_related('message', 'owner')
+        base_qs = super().get_queryset()
+        key = f'mailing_list_{self.request.user.pk}'
+        pk_list = cache.get_or_set(
+            key,
+            lambda: list(base_qs.values_list('pk', flat=True)),
+            60,
+        )
+        return (
+            Mailing.objects.filter(pk__in=pk_list)
+            .select_related('message', 'owner')
+            .order_by('-start_time')
+        )
 
 
 class MailingDetailView(OwnerOrManagerMixin, DetailView):
@@ -187,6 +218,7 @@ class MailingUpdateView(OwnerCheckMixin, UpdateView):
     def form_valid(self, form):
         response = super().form_valid(form)
         self.object.update_status()
+        cache.clear()
         return response
 
     def get_context_data(self, **kwargs):
@@ -205,6 +237,11 @@ class MailingDeleteView(OwnerCheckMixin, DeleteView):
     model = Mailing
     template_name = 'mailing/includes/confirm_delete.html'
     success_url = '/mailings/'
+
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        cache.clear()
+        return response
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -287,69 +324,71 @@ def statistics_report(request):
     user = request.user
 
     if is_manager(user):
+        key = 'statistics_global'
         mailings_qs = Mailing.objects.all()
         attempts_qs = MailingAttempt.objects.all()
         scope_label = 'Общая статистика по всем пользователям'
     else:
+        key = f'statistics_user_{user.pk}'
         mailings_qs = Mailing.objects.filter(owner=user)
         attempts_qs = MailingAttempt.objects.filter(mailing__owner=user)
         scope_label = 'Моя статистика'
 
-    total_mailings = mailings_qs.count()
-    active_mailings = mailings_qs.filter(
-        status=Mailing.STATUS_RUNNING,
-        start_time__lte=now,
-        end_time__gte=now,
-    ).count()
-    completed_mailings = mailings_qs.filter(status=Mailing.STATUS_COMPLETED).count()
+    def compute():
+        total_mailings = mailings_qs.count()
+        active_mailings = mailings_qs.filter(
+            status=Mailing.STATUS_RUNNING,
+            start_time__lte=now,
+            end_time__gte=now,
+        ).count()
+        completed_mailings = mailings_qs.filter(status=Mailing.STATUS_COMPLETED).count()
 
-    stats = attempts_qs.aggregate(
-        total_attempts=Count('id'),
-        messages_sent=Count('id', filter=Q(status=MailingAttempt.STATUS_SUCCESS)),
-        messages_failed=Count('id', filter=Q(status=MailingAttempt.STATUS_FAIL)),
-        unique_recipients=Count('client', distinct=True),
-    )
-
-    total = stats['total_attempts'] or 0
-    success = stats['messages_sent'] or 0
-    success_rate = (success / total * 100) if total > 0 else 0.0
-    fail_rate = 100.0 - success_rate
-
-    recent_errors = (
-        attempts_qs.filter(status=MailingAttempt.STATUS_FAIL)
-        .select_related('mailing', 'client')
-        .order_by('-sent_at')[:10]
-    )
-
-    users_stats = None
-    if is_manager(user):
-        users_stats = (
-            Mailing.objects
-            .values('owner__email')
-            .annotate(
-                mailings=Count('id', distinct=True),
-                total=Count('attempts'),
-                sent=Count('attempts', filter=Q(attempts__status=MailingAttempt.STATUS_SUCCESS)),
-                failed=Count('attempts', filter=Q(attempts__status=MailingAttempt.STATUS_FAIL)),
-            )
-            .order_by('-total')
+        stats = attempts_qs.aggregate(
+            total_attempts=Count('id'),
+            messages_sent=Count('id', filter=Q(status=MailingAttempt.STATUS_SUCCESS)),
+            messages_failed=Count('id', filter=Q(status=MailingAttempt.STATUS_FAIL)),
+            unique_recipients=Count('client', distinct=True),
         )
 
-    context = {
-        'scope_label': scope_label,
-        'is_manager': is_manager(user),
+        total = stats['total_attempts'] or 0
+        success = stats['messages_sent'] or 0
+        success_rate = (success / total * 100) if total > 0 else 0.0
+        fail_rate = 100.0 - success_rate
 
-        'total_mailings': total_mailings,
-        'active_mailings': active_mailings,
-        'completed_mailings': completed_mailings,
+        recent_errors = list(
+            attempts_qs.filter(status=MailingAttempt.STATUS_FAIL)
+            .select_related('mailing', 'client')
+            .order_by('-sent_at')[:10]
+        )
 
-        'stats': stats,
-        'recent_errors': recent_errors,
-        'users_stats': users_stats,
+        users_stats = None
+        if is_manager(user):
+            users_stats = list(
+                Mailing.objects
+                .values('owner__email')
+                .annotate(
+                    mailings=Count('id', distinct=True),
+                    total=Count('attempts'),
+                    sent=Count('attempts', filter=Q(attempts__status=MailingAttempt.STATUS_SUCCESS)),
+                    failed=Count('attempts', filter=Q(attempts__status=MailingAttempt.STATUS_FAIL)),
+                )
+                .order_by('-total')
+            )
 
-        'success_rate': success_rate,
-        'fail_rate': fail_rate,
-    }
+        return {
+            'total_mailings': total_mailings,
+            'active_mailings': active_mailings,
+            'completed_mailings': completed_mailings,
+            'stats': stats,
+            'recent_errors': recent_errors,
+            'users_stats': users_stats,
+            'success_rate': success_rate,
+            'fail_rate': fail_rate,
+        }
+
+    context = cache.get_or_set(key, compute, 60)
+    context['scope_label'] = scope_label
+    context['is_manager'] = is_manager(user)
 
     return render(request, 'mailing/statistics_report.html', context)
 
@@ -362,6 +401,11 @@ def block_mailing(request, pk):
     mailing = get_object_or_404(Mailing, pk=pk)
     mailing.status = Mailing.STATUS_BLOCKED
     mailing.save()
+
+    cache.delete('statistics_global')
+    cache.delete(f'statistics_user_{mailing.owner_id}')
+    cache.delete(f'dashboard_{mailing.owner_id}')
+
     return redirect('mailing:mailing_list')
 
 
@@ -375,6 +419,10 @@ def start_mailing(request, pk):
 
     queue = django_rq.get_queue('default')
     job = queue.enqueue(run_mailing_task, mailing.id)
+
+    cache.delete('statistics_global')
+    cache.delete(f'statistics_user_{mailing.owner_id}')
+    cache.delete(f'dashboard_{mailing.owner_id}')
 
     messages.success(request, f"Рассылка #{mailing.id} отправлена в очередь обработки!")
     return redirect('mailing:dashboard')
