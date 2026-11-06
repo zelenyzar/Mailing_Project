@@ -1,3 +1,4 @@
+# mailing/mixins.py
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 
 from .permissions import is_manager
@@ -18,4 +19,6 @@ class OwnerCheckMixin(LoginRequiredMixin, UserPassesTestMixin):
 
     def test_func(self):
         obj = self.get_object()
-        return obj.owner_id == self.request.user.pk or is_manager(self.request.user)
+        if obj.owner_id == self.request.user.pk:
+            return True
+        return is_manager(self.request.user)

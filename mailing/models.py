@@ -11,7 +11,7 @@ User = get_user_model()
 
 class Client(models.Model):
     email = models.EmailField(
-        max_length=100, verbose_name='Email',
+        max_length=100, unique=True, verbose_name='Email',
         validators=[validate_email], help_text='введите почту клиента'
     )
     full_name = models.CharField(
@@ -28,12 +28,6 @@ class Client(models.Model):
         verbose_name = 'Получатель рассылки'
         verbose_name_plural = 'Получатели рассылки'
         ordering = ['email']
-        constraints = [
-            models.UniqueConstraint(
-                fields=['owner', 'email'],
-                name='unique_client_email_per_owner'
-            ),
-        ]
 
     def __str__(self):
         return f"{self.email}"
@@ -86,7 +80,6 @@ class MailingAttempt(models.Model):
     def __str__(self):
         return f'{self.mailing.id} -> {self.client.email} ({self.status})'
 
-
 class Mailing(models.Model):
     STATUS_CREATED = 'Создана'
     STATUS_RUNNING = 'Запущена'
@@ -130,15 +123,23 @@ class Mailing(models.Model):
             raise ValidationError('Дата начала должна быть строго раньше даты окончания.')
 
     def update_status(self):
+        """
+        Обновляет статус одной рассылки по текущему времени.
+        Вызывается перед отправкой и при просмотре детали рассылки.
+        """
         now = timezone.now()
+
         if self.status == self.STATUS_BLOCKED:
-            return
-        if self.start_time and self.end_time:
-            if self.start_time <= now <= self.end_time:
-                self.status = self.STATUS_RUNNING
-            elif now > self.end_time:
-                self.status = self.STATUS_COMPLETED
-        self.save(update_fields=['status'])
+            return self.status
+
+        if self.status == self.STATUS_CREATED and self.start_time <= now <= self.end_time:
+            self.status = self.STATUS_RUNNING
+            self.save(update_fields=['status'])
+        elif self.status == self.STATUS_RUNNING and now > self.end_time:
+            self.status = self.STATUS_COMPLETED
+            self.save(update_fields=['status'])
+
+        return self.status
 
     @classmethod
     def update_all_statuses(cls):
@@ -160,11 +161,6 @@ class Mailing(models.Model):
             ).update(status=cls.STATUS_COMPLETED)
 
     def send(self):
-        """
-        ВАЖНО: Этот метод НЕЛЬЗЯ вызывать напрямую из View.
-        Он должен быть обернут в задачу Celery/RQ.
-        Возвращает кортеж (успех, список ошибок).
-        """
         now = timezone.now()
 
         if self.status == self.STATUS_BLOCKED:
