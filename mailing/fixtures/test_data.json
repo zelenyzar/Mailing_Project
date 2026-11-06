@@ -1,0 +1,317 @@
+[
+  {
+    "model": "mailing.client",
+    "pk": 2,
+    "fields": {
+      "email": "client1@example.com",
+      "full_name": "Клиент 1",
+      "comment": "Тестовый получатель #1"
+    }
+  },
+  {
+    "model": "mailing.client",
+    "pk": 3,
+    "fields": {
+      "email": "client2@example.com",
+      "full_name": "Клиент 2",
+      "comment": "Тестовый получатель #2"
+    }
+  },
+  {
+    "model": "mailing.client",
+    "pk": 4,
+    "fields": {
+      "email": "client3@example.com",
+      "full_name": "Клиент 3",
+      "comment": "Тестовый получатель #3"
+    }
+  },
+  {
+    "model": "mailing.client",
+    "pk": 5,
+    "fields": {
+      "email": "client4@example.com",
+      "full_name": "Клиент 4",
+      "comment": "Тестовый получатель #4"
+    }
+  },
+  {
+    "model": "mailing.client",
+    "pk": 6,
+    "fields": {
+      "email": "client5@example.com",
+      "full_name": "Клиент 5",
+      "comment": "Тестовый получатель #5"
+    }
+  },
+  {
+    "model": "mailing.client",
+    "pk": 1,
+    "fields": {
+      "email": "zelenyzar@tutamail.com",
+      "full_name": null,
+      "comment": ""
+    }
+  },
+  {
+    "model": "mailing.message",
+    "pk": 1,
+    "fields": {
+      "subject": "test",
+      "message": "testtesttesttesttesttesttesttesttesttest"
+    }
+  },
+  {
+    "model": "mailing.message",
+    "pk": 3,
+    "fields": {
+      "subject": "Акция: Скидка 20% только сегодня",
+      "message": "Только сегодня у нас действует скидка 20%. Успейте воспользоваться!"
+    }
+  },
+  {
+    "model": "mailing.message",
+    "pk": 4,
+    "fields": {
+      "subject": "Отчёт за месяц: Ваши результаты",
+      "message": "Вот ваши показатели за прошедший месяц. Подробнее в личном кабинете."
+    }
+  },
+  {
+    "model": "mailing.message",
+    "pk": 2,
+    "fields": {
+      "subject": "Приветствие: Добро пожаловать!",
+      "message": "Здравствуйте, {{ name }}! Рады видеть вас в нашей рассылке."
+    }
+  },
+  {
+    "model": "mailing.mailing",
+    "pk": 2,
+    "fields": {
+      "start_time": "2026-10-28T22:00:00Z",
+      "end_time": "2026-10-29T02:03:00Z",
+      "status": "Создана",
+      "message": 1,
+      "recipients": [
+        1
+      ]
+    }
+  },
+  {
+    "model": "mailing.mailing",
+    "pk": 6,
+    "fields": {
+      "start_time": "2024-11-17T07:00:00Z",
+      "end_time": "2024-11-20T07:00:00Z",
+      "status": "Создана",
+      "message": 2,
+      "recipients": [
+        2,
+        3,
+        4
+      ]
+    }
+  },
+  {
+    "model": "mailing.mailing",
+    "pk": 3,
+    "fields": {
+      "start_time": "2024-11-17T07:00:00Z",
+      "end_time": "2024-11-20T07:00:00Z",
+      "status": "Создана",
+      "message": 2,
+      "recipients": [
+        2,
+        3,
+        4
+      ]
+    }
+  },
+  {
+    "model": "mailing.mailing",
+    "pk": 9,
+    "fields": {
+      "start_time": "2024-11-17T07:00:00Z",
+      "end_time": "2024-11-20T07:00:00Z",
+      "status": "Создана",
+      "message": 2,
+      "recipients": [
+        2,
+        3,
+        4
+      ]
+    }
+  },
+  {
+    "model": "mailing.mailing",
+    "pk": 7,
+    "fields": {
+      "start_time": "2024-11-15T07:00:00Z",
+      "end_time": "2024-11-16T07:00:00Z",
+      "status": "Запущена",
+      "message": 3,
+      "recipients": [
+        3,
+        4,
+        5,
+        6
+      ]
+    }
+  },
+  {
+    "model": "mailing.mailing",
+    "pk": 4,
+    "fields": {
+      "start_time": "2024-11-15T07:00:00Z",
+      "end_time": "2024-11-16T07:00:00Z",
+      "status": "Запущена",
+      "message": 3,
+      "recipients": [
+        3,
+        4,
+        5,
+        6
+      ]
+    }
+  },
+  {
+    "model": "mailing.mailing",
+    "pk": 10,
+    "fields": {
+      "start_time": "2024-11-15T07:00:00Z",
+      "end_time": "2024-11-16T07:00:00Z",
+      "status": "Запущена",
+      "message": 3,
+      "recipients": [
+        3,
+        4,
+        5,
+        6
+      ]
+    }
+  },
+  {
+    "model": "mailing.mailing",
+    "pk": 5,
+    "fields": {
+      "start_time": "2024-11-12T07:00:00Z",
+      "end_time": "2024-11-14T07:00:00Z",
+      "status": "Завершена",
+      "message": 4,
+      "recipients": [
+        2,
+        3,
+        4,
+        5,
+        6
+      ]
+    }
+  },
+  {
+    "model": "mailing.mailing",
+    "pk": 11,
+    "fields": {
+      "start_time": "2024-11-12T07:00:00Z",
+      "end_time": "2024-11-14T07:00:00Z",
+      "status": "Завершена",
+      "message": 4,
+      "recipients": [
+        2,
+        3,
+        4,
+        5,
+        6
+      ]
+    }
+  },
+  {
+    "model": "mailing.mailing",
+    "pk": 8,
+    "fields": {
+      "start_time": "2024-11-12T07:00:00Z",
+      "end_time": "2024-11-14T07:00:00Z",
+      "status": "Завершена",
+      "message": 4,
+      "recipients": [
+        2,
+        3,
+        4,
+        5,
+        6
+      ]
+    }
+  },
+  {
+    "model": "mailing.mailingattempt",
+    "pk": 7,
+    "fields": {
+      "mailing": 10,
+      "client": 3,
+      "status": "Не успешно",
+      "error_message": "SMTP Error: user not found",
+      "sent_at": "2026-10-29T22:13:20.948Z",
+      "server_response": "550 User unknown"
+    }
+  },
+  {
+    "model": "mailing.mailingattempt",
+    "pk": 6,
+    "fields": {
+      "mailing": 10,
+      "client": 2,
+      "status": "Успешно",
+      "error_message": "",
+      "sent_at": "2026-10-29T22:13:20.946Z",
+      "server_response": "OK"
+    }
+  },
+  {
+    "model": "mailing.mailingattempt",
+    "pk": 5,
+    "fields": {
+      "mailing": 7,
+      "client": 3,
+      "status": "Не успешно",
+      "error_message": "SMTP Error: user not found",
+      "sent_at": "2026-10-29T22:11:26.007Z",
+      "server_response": "550 User unknown"
+    }
+  },
+  {
+    "model": "mailing.mailingattempt",
+    "pk": 4,
+    "fields": {
+      "mailing": 7,
+      "client": 2,
+      "status": "Успешно",
+      "error_message": "",
+      "sent_at": "2026-10-29T22:11:26.006Z",
+      "server_response": "OK"
+    }
+  },
+  {
+    "model": "mailing.mailingattempt",
+    "pk": 3,
+    "fields": {
+      "mailing": 4,
+      "client": 3,
+      "status": "Не успешно",
+      "error_message": "SMTP Error: user not found",
+      "sent_at": "2026-10-29T22:07:36.162Z",
+      "server_response": "550 User unknown"
+    }
+  },
+  {
+    "model": "mailing.mailingattempt",
+    "pk": 2,
+    "fields": {
+      "mailing": 4,
+      "client": 2,
+      "status": "Успешно",
+      "error_message": "",
+      "sent_at": "2026-10-29T22:07:36.160Z",
+      "server_response": "OK"
+    }
+  }
+]

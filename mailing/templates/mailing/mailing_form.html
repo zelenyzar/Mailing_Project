@@ -1,0 +1,41 @@
+{% extends "mailing/includes/form_card.html" %}
+
+{% block form_title %}{% if object %}Редактировать рассылку{% else %}Создать рассылку{% endif %}{% endblock %}
+{% block submit_text %}{% if object %}Сохранить изменения{% else %}Создать рассылку{% endif %}{% endblock %}
+{% block cancel_url %}{% url 'mailing:mailing_list' %}{% endblock %}
+
+{% block form_fields %}
+    <div class="mb-4">
+        <label class="form-label">Сообщение <span class="text-danger">*</span></label>
+        <select name="message" class="form-select" required>
+            {% for msg in messages_list %}
+                <option value="{{ msg.id }}" {% if object and object.message.id == msg.id %}selected{% endif %}>
+                    #{{ msg.id }} — {{ msg.subject }}
+                </option>
+            {% endfor %}
+        </select>
+    </div>
+
+    <div class="mb-4">
+        <label class="form-label">Получатели <span class="text-danger">*</span></label>
+        <small class="text-muted d-block mb-2">Зажмите Ctrl/Cmd, чтобы выбрать несколько.</small>
+        <select multiple name="recipients" class="form-select" size="8" required>
+            {% for client in clients_list %}
+                <option value="{{ client.id }}" {% if object and client.id in recipient_ids %}selected{% endif %}>
+                    {{ client.email }} {% if client.full_name %}({{ client.full_name }}){% endif %}
+                </option>
+            {% endfor %}
+        </select>
+    </div>
+
+    <div class="row g-3">
+        <div class="col-md-6">
+            <label class="form-label">Дата и время начала <span class="text-danger">*</span></label>
+            <input type="datetime-local" name="start_time" value="{{ object.start_time|date:'Y-m-d\TH:i' }}" class="form-control" required>
+        </div>
+        <div class="col-md-6">
+            <label class="form-label">Дата и время окончания <span class="text-danger">*</span></label>
+            <input type="datetime-local" name="end_time" value="{{ object.end_time|date:'Y-m-d\TH:i' }}" class="form-control" required>
+        </div>
+    </div>
+{% endblock %}

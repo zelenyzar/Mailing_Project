@@ -1,0 +1,25 @@
+{% extends "mailing/includes/form_card.html" %}
+
+{% block form_title %}{% if object %}Редактировать получателя{% else %}Добавить получателя{% endif %}{% endblock %}
+{% block submit_text %}{% if object %}Сохранить изменения{% else %}Создать получателя{% endif %}{% endblock %}
+{% block cancel_url %}{% url 'mailing:client_list' %}{% endblock %}
+
+{% block form_fields %}
+    <div class="mb-3">
+        <label class="form-label">Email <span class="text-danger">*</span></label>
+        {{ form.email }}
+        {% if form.email.errors %}<div class="text-danger small">{{ form.email.errors.0 }}</div>{% endif %}
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label">Ф.И.О.</label>
+        {{ form.full_name }}
+        {% if form.full_name.errors %}<div class="text-danger small">{{ form.full_name.errors.0 }}</div>{% endif %}
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label">Комментарий</label>
+        {{ form.comment }}
+        {% if form.comment.errors %}<div class="text-danger small">{{ form.comment.errors.0 }}</div>{% endif %}
+    </div>
+{% endblock %}
