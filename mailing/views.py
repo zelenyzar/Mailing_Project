@@ -22,10 +22,15 @@ from mailing.models import Client, Message, Mailing, MailingAttempt
 # --- Clients ---
 class ClientListView(OwnerOrManagerMixin, ListView):
     model = Client
+    template_name = 'mailing/client_list.html'
+    context_object_name = 'clients'
 
     def get_queryset(self):
         key = f'client_list_{self.request.user.pk}'
-        return cache.get_or_set(key, lambda: list(super().get_queryset()), 60)
+        return cache.get_or_set(key, self._fetch_clients, 60)
+
+    def _fetch_clients(self):
+        return list(super().get_queryset())
 
 
 class ClientDetailView(OwnerOrManagerMixin, DetailView):
@@ -80,10 +85,15 @@ class ClientDeleteView(OwnerCheckMixin, DeleteView):
 # --- Message ---
 class MessageListView(OwnerOrManagerMixin, ListView):
     model = Message
+    template_name = 'mailing/message_list.html'  # подставьте свой путь
+    context_object_name = 'messages'  # если в шаблоне используете {{ messages }}
 
     def get_queryset(self):
         key = f'message_list_{self.request.user.pk}'
-        return cache.get_or_set(key, lambda: list(super().get_queryset()), 60)
+        return cache.get_or_set(key, self._fetch_messages, 60)
+
+    def _fetch_messages(self):
+        return list(super().get_queryset())
 
 
 class MessageDetailView(OwnerOrManagerMixin, DetailView):
