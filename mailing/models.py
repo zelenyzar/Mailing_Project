@@ -11,7 +11,7 @@ User = get_user_model()
 
 class Client(models.Model):
     email = models.EmailField(
-        max_length=100, verbose_name='Email',          # unique=True убрали
+        max_length=100, verbose_name='Email',
         validators=[validate_email], help_text='введите почту клиента'
     )
     full_name = models.CharField(

@@ -34,7 +34,7 @@ class MailingForm(forms.ModelForm):
 
         if start_time and start_time < now:
             if self.instance and self.instance.pk and self.instance.start_time == start_time:
-                pass  # дату не меняли — не ругаемся
+                pass
             else:
                 self.add_error('start_time', 'Дата начала не может быть в прошлом.')
 
